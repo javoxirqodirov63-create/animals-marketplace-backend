@@ -1,13 +1,12 @@
 """
 Universal Hayvonlar Bozori (Animals-uz) - Telegram Bot
-Ushbu bot ma'lumotlar bazasi bilan to'liq integratsiyalashgan.
-Xavfsizlik: Admin Panel va ichki havolalar oddiy foydalanuvchilardan 100% yashirilgan!
+Ushbu bot faqat xaridorlar va sotuvchilar uchun toza marketplace boti.
+Admin panel va ichki tizim ma'lumotlari to'liq olib tashlangan.
 """
 
 import asyncio
 import os
 import sys
-import json
 import sqlite3
 from pathlib import Path
 
@@ -19,9 +18,6 @@ import httpx
 
 # Bot Token
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8876952734:AAHhItlxD_jfYvEPUUnqLdUYaZuHHUozmGw")
-
-# Xavfsizlik: Faqat sizning shaxsiy Telegram ID raqamingiz Admin hisoblanadi
-ADMIN_IDS = [8957417494]
 
 # Baza yo'li
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -45,7 +41,7 @@ class TelegramBot:
         async with httpx.AsyncClient() as client:
             try:
                 res = await client.post(f"{self.api_url}/sendMessage", json=payload, timeout=10.0)
-                print(f"[*] sendMessage javobi: {res.status_code} -> {res.text[:120]}", flush=True)
+                print(f"[*] sendMessage javobi: {res.status_code}", flush=True)
                 return res.json()
             except Exception as e:
                 print(f"[!] Xabar yuborishda xato: {e}", flush=True)
@@ -84,11 +80,10 @@ class TelegramBot:
         chat_id = message["chat"]["id"]
         text = message.get("text", "").strip()
         first_name = message["chat"].get("first_name", "Foydalanuvchi")
-        is_admin = chat_id in ADMIN_IDS
 
-        print(f"[*] Yangi xabar keldi: chat_id={chat_id} (Admin: {is_admin}), text='{text}'", flush=True)
+        print(f"[*] Xabar keldi: chat_id={chat_id}, text='{text}'", flush=True)
 
-        # Oddiy foydalanuvchilar uchun xavfsiz va toza menyu
+        # Foydalanuvchilar uchun qulay va toza menyu (Admin panellarsiz!)
         user_keyboard = {
             "keyboard": [
                 [{"text": "🐾 Barcha E'lonlar"}, {"text": "🔍 Qidirish"}],
@@ -98,30 +93,18 @@ class TelegramBot:
             "persistent": True
         }
 
-        # Faqat Admin uchun maxsus menyu (Admin paneli va boshqaruv bilan)
-        admin_keyboard = {
-            "keyboard": [
-                [{"text": "🐾 Barcha E'lonlar"}, {"text": "🔍 Qidirish"}],
-                [{"text": "👑 Admin Boshqaruv"}, {"text": "📊 Maxfiy Statistika"}]
-            ],
-            "resize_keyboard": True,
-            "persistent": True
-        }
-
-        active_keyboard = admin_keyboard if is_admin else user_keyboard
-
         if text.startswith("/start"):
             welcome_text = (
                 f"Assalomu alaykum, <b>{first_name}</b>!\n\n"
                 "🐾 <b>Universal Hayvonlar Bozori (Animals-uz)</b> rasmiy botiga xush kelibsiz!\n\n"
-                "Bu yerda siz O'zbekiston bo'yicha barcha turdagi chorva mollari, uy hayvonlari va parrandalarni topishingiz va sotuvchilar bilan to'g'ridan-to'g'ri bog'lanishingiz mumkin.\n\n"
+                "Ushbu bot orqali O'zbekiston bo'yicha barcha turdagi chorva mollari, uy hayvonlari va parrandalarni sotib olishingiz yoki e'lonlarni ko'rishingiz mumkin.\n\n"
                 "👇 Kerakli bo'limni tanlang yoki qidirayotgan hayvoningiz nomini yozing (masalan: <i>Sigir</i>, <i>Alabay</i>, <i>Ot</i>, <i>Qo'chqor</i>):"
             )
-            await self.send_message(chat_id, welcome_text, active_keyboard)
+            await self.send_message(chat_id, welcome_text, user_keyboard)
 
         elif text in ["/all", "🐾 Barcha E'lonlar"]:
             listings = self.search_listings("")
-            await self.send_message(chat_id, "📋 <b>So'nggi faol e'lonlar:</b>")
+            await self.send_message(chat_id, "📋 <b>Faol e'lonlar ro'yxati:</b>")
             for item in listings:
                 vip_badge = "⭐ <b>[VIP E'LON]</b>\n" if item["is_vip"] else ""
                 msg = (
@@ -131,72 +114,43 @@ class TelegramBot:
                     f"🏷 <b>Zoti:</b> {item['breed'] or 'Oddiy'}\n"
                     f"📍 <b>Manzil:</b> {item['location']}\n"
                     f"👤 <b>Sotuvchi:</b> {item['seller_name']}\n"
-                    f"📞 <b>Aloqa:</b> <code>{item['contact_phone']}</code>\n"
+                    f"📞 <b>Telefon:</b> <code>{item['contact_phone']}</code>\n"
                 )
                 await self.send_message(chat_id, msg)
 
         elif text in ["ℹ️ Ilova haqida"]:
             about_text = (
-                "ℹ️ <b>Animals-uz Platformasi Haqida:</b>\n\n"
-                "Ushbu platforma O'zbekistondagi barcha turdagi hayvonlar savdosini osonlashtirish maqsadida yaratilgan.\n\n"
-                "✅ <b>Asosiy afzalliklari:</b>\n"
-                "• O'rtakashlarsiz, to'g'ridan-to'g'ri sotuvchi bilan bog'lanish;\n"
-                "• Viloyat va tumanlar bo'yicha qulay qidiruv;\n"
-                "• Chorva, uy hayvonlari va parrandalar bitta joyda."
+                "ℹ️ <b>Animals-uz Platformasi:</b>\n\n"
+                "O'zbekistondagi barcha turdagi chorva mollari, uy hayvonlari va parrandalar savdosi uchun qulay platforma.\n\n"
+                "✅ <b>Imkoniyatlar:</b>\n"
+                "• To'g'ridan-to'g'ri sotuvchilar bilan bog'lanish;\n"
+                "• Viloyat va tumanlar bo'yicha aniq filtrlar;\n"
+                "• Bepul e'lon joylashtirish."
             )
-            await self.send_message(chat_id, about_text, active_keyboard)
+            await self.send_message(chat_id, about_text, user_keyboard)
 
         elif text in ["/help", "📞 Aloqa / Yordam", "📞 Aloqa"]:
             help_text = (
-                "📞 <b>Mijozlarni Qo'llab-Quvvatlash:</b>\n\n"
-                "Savollar, takliflar yoki e'lon joylash bo'yicha yordam kerak bo'lsa, administrator bilan bog'lanishingiz mumkin:\n"
+                "📞 <b>Qo'llab-quvvatlash xizmati:</b>\n\n"
+                "Savollar va takliflar bo'yicha biz bilan bog'lanishingiz mumkin:\n"
                 "👤 Telegram: @javoxirqodirov63"
             )
-            await self.send_message(chat_id, help_text, active_keyboard)
+            await self.send_message(chat_id, help_text, user_keyboard)
 
         elif text in ["🔍 Qidirish"]:
             await self.send_message(
                 chat_id,
                 "🔍 Qidirayotgan hayvoningiz nomini yozing (masalan: <b>Alabay</b>, <b>Sigir</b>, <b>Ot</b> yoki <b>Hisori</b>):",
-                active_keyboard
+                user_keyboard
             )
 
-        # FAQAT ADMIN UCHUN BUYRUQLAR (Oddiy foydalanuvchilarga ko'rinmaydi va ishlamaydi)
-        elif text in ["/admin", "👑 Admin Boshqaruv"]:
-            if not is_admin:
-                await self.send_message(chat_id, "❌ Kechirasiz, sizda admin huquqi yo'q.", user_keyboard)
-                return
-
-            admin_text = (
-                "👑 <b>Hurmatli Administrator!</b>\n\n"
-                "Sizning shaxsiy boshqaruv kabinetingiz:\n"
-                "👉 <b>Boshqaruv Paneli:</b> http://127.0.0.1:8000/admin\n\n"
-                "<i>(Ushbu havola faqat sizga ko'rinadi va oddiy foydalanuvchilarga yuborilmaydi)</i>"
+        elif text in ["/admin", "/stats"]:
+            # Admin va statistika botda butunlay o'chirildi
+            await self.send_message(
+                chat_id,
+                "🐾 Hayvonlar bo'yicha e'lonlarni ko'rish uchun <b>'🐾 Barcha E'lonlar'</b> tugmasini bosing yoki nomini yozing (masalan: <i>Sigir</i>, <i>Alabay</i>).",
+                user_keyboard
             )
-            await self.send_message(chat_id, admin_text, admin_keyboard)
-
-        elif text in ["/stats", "📊 Maxfiy Statistika"]:
-            if not is_admin:
-                await self.send_message(chat_id, "❌ Kechirasiz, sizda admin huquqi yo'q.", user_keyboard)
-                return
-
-            conn = sqlite3.connect(DB_PATH)
-            c = conn.cursor()
-            c.execute("SELECT COUNT(*) FROM listings WHERE status = 'active'")
-            active = c.fetchone()[0]
-            c.execute("SELECT COUNT(*) FROM listings WHERE is_vip = 1")
-            vip = c.fetchone()[0]
-            c.execute("SELECT COUNT(*) FROM users")
-            users = c.fetchone()[0]
-            conn.close()
-            
-            stats_text = (
-                "📊 <b>Administrator Statistikasi:</b>\n\n"
-                f"• 🟢 Faol e'lonlar: <b>{active} ta</b>\n"
-                f"• ⭐ VIP e'lonlar: <b>{vip} ta</b>\n"
-                f"• 👥 Jami foydalanuvchilar: <b>{users} ta</b>"
-            )
-            await self.send_message(chat_id, stats_text, admin_keyboard)
 
         else:
             # Matn bo'yicha qidiruv
@@ -205,10 +159,10 @@ class TelegramBot:
                 await self.send_message(
                     chat_id,
                     f"❌ <i>'{text}'</i> bo'yicha hech qanday e'lon topilmadi.\nBoshqa so'z bilan qidirib ko'ring (masalan: Sigir, Ot, Alabay).",
-                    active_keyboard
+                    user_keyboard
                 )
             else:
-                await self.send_message(chat_id, f"🔍 <b>'{text}'</b> bo'yicha topilgan natijalar:")
+                await self.send_message(chat_id, f"🔍 <b>'{text}'</b> bo'yicha topilgan e'lonlar:")
                 for item in listings:
                     vip_badge = "⭐ <b>[VIP E'LON]</b>\n" if item["is_vip"] else ""
                     msg = (
@@ -217,13 +171,13 @@ class TelegramBot:
                         f"💰 <b>Narxi:</b> {item['price']:,.0f} {item['currency']}\n"
                         f"📍 <b>Manzil:</b> {item['location']}\n"
                         f"👤 <b>Sotuvchi:</b> {item['seller_name']}\n"
-                        f"📞 <b>Aloqa:</b> <code>{item['contact_phone']}</code>\n"
+                        f"📞 <b>Telefon:</b> <code>{item['contact_phone']}</code>\n"
                     )
                     await self.send_message(chat_id, msg)
 
     async def run(self):
         print("=" * 60, flush=True)
-        print(" [*] TELEGRAM BOT ISHGA TUSHMOQDA (XAVFSIZ REJIM)...", flush=True)
+        print(" [*] TELEGRAM BOT ISHGA TUSHMOQDA (FOYDALANUVCHILAR UCHUN TOZA REJIM)...", flush=True)
         print("=" * 60, flush=True)
         
         async with httpx.AsyncClient() as client:
@@ -233,8 +187,7 @@ class TelegramBot:
                     print(f"[!] Xatolik: Bot tokeni xato! {me.text}", flush=True)
                     return
                 bot_info = me.json()["result"]
-                print(f"[*] Bot muvaffaqiyatli ulandi: @{bot_info['username']} ({bot_info['first_name']})", flush=True)
-                print(f"[*] Asosiy Administrator ID: {ADMIN_IDS}", flush=True)
+                print(f"[*] Bot muvaffaqiyatli ulandi: @{bot_info['username']}", flush=True)
                 print("[*] Yangi xabarlar kutilmoqda...", flush=True)
             except Exception as e:
                 print(f"[!] Ulanishda xato: {e}", flush=True)
