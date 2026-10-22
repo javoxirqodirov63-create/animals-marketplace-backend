@@ -71,7 +71,7 @@ def get_all_listings_admin():
 
 # 4. E'lon holatini o'zgartirish (Bloklash / Faollashtirish)
 @router.patch("/api/admin/listings/{listing_id}/status", summary="E'lon statusini o'zgartirish")
-def update_listing_status(listing_id: str, new_status: str = Query(..., regex="^(active|blocked|sold|archived)$")):
+def update_listing_status(listing_id: str, new_status: str = Query(..., pattern="^(active|blocked|sold|archived)$")):
     with get_db() as db:
         db.execute("SELECT id FROM listings WHERE id = ?", (listing_id,))
         if not db.fetchone():
