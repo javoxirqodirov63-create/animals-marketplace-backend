@@ -1,7 +1,6 @@
 """
 Universal Hayvonlar Bozori (Animals-uz) - Telegram Bot
-Ushbu bot FastAPI va ma'lumotlar bazasi bilan to'g'ridan-to'g'ri integratsiyalashgan.
-Hech qanday qo'shimcha og'ir kutubxona shart emas (mavjud httpx orqali ishlaydi).
+Ushbu bot ma'lumotlar bazasi bilan to'liq integratsiyalashgan.
 """
 
 import asyncio
@@ -11,7 +10,7 @@ import json
 import sqlite3
 from pathlib import Path
 
-# Windows konsoli uchun UTF-8
+# Windows konsolida UTF-8 ni ta'minlash
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
 
@@ -19,10 +18,6 @@ import httpx
 
 # Bot Token
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "8876952734:AAHhItlxD_jfYvEPUUnqLdUYaZuHHUozmGw")
-
-# WebApp URL (agar internet domeni bo'lsa o'shani, bo'lmasa ko'rsatma)
-WEBAPP_URL = os.getenv("WEBAPP_URL", "http://localhost:7777")
-API_BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000/api")
 
 # Baza yo'li
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -41,32 +36,16 @@ class TelegramBot:
             "parse_mode": "HTML"
         }
         if reply_markup:
-            payload["reply_markup"] = json.dumps(reply_markup)
-            
+            payload["reply_markup"] = reply_markup  # DICT bo'lishi shart!
+
         async with httpx.AsyncClient() as client:
             try:
-                await client.post(f"{self.api_url}/sendMessage", json=payload, timeout=10.0)
+                res = await client.post(f"{self.api_url}/sendMessage", json=payload, timeout=10.0)
+                print(f"[*] sendMessage javobi: {res.status_code} -> {res.text[:120]}", flush=True)
+                return res.json()
             except Exception as e:
-                print(f"[!] Xabar yuborishda xato: {e}")
-
-    async def send_photo(self, chat_id: int, photo_url: str, caption: str, reply_markup=None):
-        payload = {
-            "chat_id": chat_id,
-            "photo": photo_url,
-            "caption": caption,
-            "parse_mode": "HTML"
-        }
-        if reply_markup:
-            payload["reply_markup"] = json.dumps(reply_markup)
-
-        async with httpx.AsyncClient() as client:
-            try:
-                res = await client.post(f"{self.api_url}/sendPhoto", json=payload, timeout=10.0)
-                if res.status_code != 200:
-                    # Agar rasm ochilmasa oddiy matn qilib yuboramiz
-                    await self.send_message(chat_id, caption, reply_markup)
-            except Exception:
-                await self.send_message(chat_id, caption, reply_markup)
+                print(f"[!] Xabar yuborishda xato: {e}", flush=True)
+                return None
 
     def search_listings(self, query: str = ""):
         conn = sqlite3.connect(DB_PATH)
@@ -101,24 +80,44 @@ class TelegramBot:
         chat_id = message["chat"]["id"]
         text = message.get("text", "").strip()
         first_name = message["chat"].get("first_name", "Foydalanuvchi")
+        print(f"[*] Yangi xabar keldi: chat_id={chat_id}, text='{text}'", flush=True)
+
+        # Asosiy klaviatura menyusi (Pastki katta tugmalar)
+        main_keyboard = {
+            "keyboard": [
+                [{"text": "🐾 Barcha E'lonlar"}, {"text": "🔍 Qidirish"}],
+                [{"text": "📊 Statistika"}, {"text": "📞 Aloqa"}]
+            ],
+            "resize_keyboard": True,
+            "persistent": True
+        }
 
         if text.startswith("/start"):
             welcome_text = (
                 f"Assalomu alaykum, <b>{first_name}</b>!\n\n"
                 "🐾 <b>Universal Hayvonlar Bozori (Animals-uz)</b> rasmiy botiga xush kelibsiz!\n\n"
-                "Ushbu bot orqali siz O'zbekiston bo'yicha barcha turdagi chorva mollari, uy hayvonlari va parrandalarni sotishingiz yoki sotib olishingiz mumkin.\n\n"
-                "👇 Kerakli bo'limni tanlang yoki qidirayotgan hayvoningiz nomini yozing (masalan: <i>Alabay</i> yoki <i>Sigir</i>):"
+                "Ushbu bot orqali barcha turdagi chorva mollari, uy hayvonlari va parrandalarni sotib olishingiz yoki e'lonlarni ko'rishingiz mumkin.\n\n"
+                "👇 Kerakli tugmani bosing yoki qidirayotgan hayvoningiz nomini yozing (masalan: <i>Sigir</i>, <i>Alabay</i>, <i>Ot</i>, <i>Qo'chqor</i>):"
             )
-            keyboard = {
-                "inline_keyboard": [
-                    [{"text": "🚀 Bozorga Kirish (Ilovani Ochish)", "web_app": {"url": WEBAPP_URL}}],
-                    [{"text": "📋 Barcha E'lonlar", "callback_data": "all_listings"}],
-                    [{"text": "👑 Boshqaruv (Admin)", "url": "http://127.0.0.1:8000/admin"}]
-                ]
-            }
-            await self.send_message(chat_id, welcome_text, keyboard)
+            await self.send_message(chat_id, welcome_text, main_keyboard)
 
-        elif text == "/stats":
+        elif text in ["/all", "🐾 Barcha E'lonlar"]:
+            listings = self.search_listings("")
+            await self.send_message(chat_id, "📋 <b>So'nggi faol e'lonlar:</b>")
+            for item in listings:
+                vip_badge = "⭐ <b>[VIP E'LON]</b>\n" if item["is_vip"] else ""
+                msg = (
+                    f"{vip_badge}"
+                    f"📌 <b>{item['title']}</b>\n"
+                    f"💰 <b>Narxi:</b> {item['price']:,.0f} {item['currency']}\n"
+                    f"🏷 <b>Zoti:</b> {item['breed'] or 'Oddiy'}\n"
+                    f"📍 <b>Manzil:</b> {item['location']}\n"
+                    f"👤 <b>Sotuvchi:</b> {item['seller_name']}\n"
+                    f"📞 <b>Aloqa:</b> <code>{item['contact_phone']}</code>\n"
+                )
+                await self.send_message(chat_id, msg)
+
+        elif text in ["/stats", "📊 Statistika"]:
             conn = sqlite3.connect(DB_PATH)
             c = conn.cursor()
             c.execute("SELECT COUNT(*) FROM listings WHERE status = 'active'")
@@ -131,11 +130,29 @@ class TelegramBot:
             
             stats_text = (
                 "📊 <b>Platforma Statistikasi:</b>\n\n"
-                f"• Faol e'lonlar: <b>{active} ta</b>\n"
-                f"• VIP e'lonlar: <b>{vip} ta</b>\n"
-                f"• Foydalanuvchilar: <b>{users} ta</b>"
+                f"• 🟢 Faol e'lonlar: <b>{active} ta</b>\n"
+                f"• ⭐ VIP e'lonlar: <b>{vip} ta</b>\n"
+                f"• 👥 Foydalanuvchilar: <b>{users} ta</b>\n\n"
+                "🌐 Web Ilova: http://localhost:7777\n"
+                "👑 Admin Panel: http://127.0.0.1:8000/admin"
             )
-            await self.send_message(chat_id, stats_text)
+            await self.send_message(chat_id, stats_text, main_keyboard)
+
+        elif text in ["/help", "📞 Aloqa"]:
+            help_text = (
+                "📞 <b>Mijozlarni Qo'llab-Quvvatlash:</b>\n\n"
+                "Savollar va takliflar bo'yicha admin bilan bog'lanishingiz mumkin:\n"
+                "👤 Telegram: @javoxirqodirov63\n"
+                "🌐 Veb-sayt: http://localhost:7777"
+            )
+            await self.send_message(chat_id, help_text, main_keyboard)
+
+        elif text in ["🔍 Qidirish"]:
+            await self.send_message(
+                chat_id,
+                "🔍 Hayvon nomini yozing (masalan: <b>Alabay</b>, <b>Sigir</b>, <b>Ot</b> yoki <b>Hisori</b>):",
+                main_keyboard
+            )
 
         else:
             # Matn bo'yicha qidiruv
@@ -143,19 +160,20 @@ class TelegramBot:
             if not listings:
                 await self.send_message(
                     chat_id,
-                    f"❌ Kechirasiz, <i>'{text}'</i> bo'yicha hech qanday e'lon topilmadi.\nBoshqa so'z bilan qidirib ko'ring (masalan: Sigir, Ot, Alabay, Qo'chqor)."
+                    f"❌ <i>'{text}'</i> bo'yicha hech qanday e'lon topilmadi.\nBoshqa so'z bilan qidirib ko'ring (masalan: Sigir, Ot, Alabay).",
+                    main_keyboard
                 )
             else:
-                await self.send_message(chat_id, f"🔍 <b>'{text}'</b> bo'yicha topilgan e'lonlar:")
+                await self.send_message(chat_id, f"🔍 <b>'{text}'</b> bo'yicha topilgan natijalar:")
                 for item in listings:
-                    vip_badge = "⭐ <b>VIP E'LON</b>\n" if item["is_vip"] else ""
+                    vip_badge = "⭐ <b>[VIP E'LON]</b>\n" if item["is_vip"] else ""
                     msg = (
                         f"{vip_badge}"
                         f"📌 <b>{item['title']}</b>\n"
                         f"💰 <b>Narxi:</b> {item['price']:,.0f} {item['currency']}\n"
                         f"📍 <b>Manzil:</b> {item['location']}\n"
                         f"👤 <b>Sotuvchi:</b> {item['seller_name']}\n"
-                        f"📞 <b>Telefon:</b> {item['contact_phone']}\n"
+                        f"📞 <b>Aloqa:</b> <code>{item['contact_phone']}</code>\n"
                     )
                     await self.send_message(chat_id, msg)
 
@@ -168,7 +186,7 @@ class TelegramBot:
             try:
                 me = await client.get(f"{self.api_url}/getMe", timeout=10.0)
                 if me.status_code != 200:
-                    print("[!] Xatolik: Bot tokeni noto'g'ri yoki yaroqsiz!", flush=True)
+                    print(f"[!] Xatolik: Bot tokeni xato! {me.text}", flush=True)
                     return
                 bot_info = me.json()["result"]
                 print(f"[*] Bot muvaffaqiyatli ulandi: @{bot_info['username']} ({bot_info['first_name']})", flush=True)
@@ -182,8 +200,8 @@ class TelegramBot:
                 async with httpx.AsyncClient() as client:
                     res = await client.get(
                         f"{self.api_url}/getUpdates",
-                        params={"offset": self.offset, "timeout": 20},
-                        timeout=25.0
+                        params={"offset": self.offset, "timeout": 15},
+                        timeout=20.0
                     )
                     if res.status_code == 200:
                         updates = res.json().get("result", [])
@@ -191,34 +209,14 @@ class TelegramBot:
                             self.offset = update["update_id"] + 1
                             if "message" in update:
                                 await self.handle_message(update["message"])
-                            elif "callback_query" in update:
-                                cb = update["callback_query"]
-                                if cb.get("data") == "all_listings":
-                                    listings = self.search_listings("")
-                                    for item in listings:
-                                        msg = (
-                                            f"📌 <b>{item['title']}</b>\n"
-                                            f"💰 Narxi: {item['price']:,.0f} {item['currency']}\n"
-                                            f"📍 Manzil: {item['location']}\n"
-                                            f"📞 Tel: {item['contact_phone']}"
-                                        )
-                                        await self.send_message(cb["message"]["chat"]["id"], msg)
             except Exception as e:
+                print(f"[!] Polling xatosi: {e}", flush=True)
                 await asyncio.sleep(2)
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.3)
 
 if __name__ == "__main__":
-    token = BOT_TOKEN
-    if not token and len(sys.argv) > 1:
-        token = sys.argv[1]
-        
-    if not token:
-        print("[!] Iltimos, Telegram Bot Tokenini kiriting!")
-        print("Foydalanish: python bot.py <SIZNING_BOT_TOKENINGIZ>")
-        sys.exit(1)
-        
-    bot = TelegramBot(token)
+    bot = TelegramBot(BOT_TOKEN)
     try:
         asyncio.run(bot.run())
     except KeyboardInterrupt:
-        print("\nBot to'xtatildi.")
+        print("\nBot to'xtatildi.", flush=True)
