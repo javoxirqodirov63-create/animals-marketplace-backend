@@ -87,6 +87,7 @@ class TelegramBot:
         user_keyboard = {
             "keyboard": [
                 [{"text": "🐾 Barcha E'lonlar"}, {"text": "🔍 Qidirish"}],
+                [{"text": "📱 Ilovani ochish", "web_app": {"url": "https://fast-reef-rg7pqgo.tmp.now"}}],
                 [{"text": "ℹ️ Ilova haqida"}, {"text": "📞 Aloqa / Yordam"}]
             ],
             "resize_keyboard": True,
