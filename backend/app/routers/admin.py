@@ -7,7 +7,6 @@ from app.database import get_db
 router = APIRouter(tags=["Admin Panel"])
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
-TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
 
 # 1. Admin Veb-Sahifasini uzatish (HTML)
 @router.get("/admin", response_class=HTMLResponse, summary="Admin Panel Veb-Sahifasi")

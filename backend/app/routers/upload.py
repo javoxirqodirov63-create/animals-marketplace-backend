@@ -4,10 +4,10 @@ import os
 import shutil
 from pathlib import Path
 
+from app.config import settings
 router = APIRouter(prefix="/upload", tags=["Rasmlar yuklash (Image Upload)"])
 
-UPLOAD_DIR = Path(__file__).resolve().parent.parent.parent / "uploads"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+UPLOAD_DIR = settings.UPLOAD_DIR
 
 ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 

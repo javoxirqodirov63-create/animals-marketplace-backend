@@ -35,9 +35,11 @@ app.add_middleware(
 )
 
 # Uploads statik papkasini ulash
-UPLOAD_DIR = Path(__file__).resolve().parent.parent.parent / "uploads"
-UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+try:
+    settings.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    app.mount("/uploads", StaticFiles(directory=str(settings.UPLOAD_DIR)), name="uploads")
+except Exception:
+    pass
 
 # Routerlarni ulash
 app.include_router(locations.router, prefix=settings.API_PREFIX)
