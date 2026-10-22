@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+build/
+dist/
+
+# Maxfiy ma'lumotlar (Environment variables)
+.env
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Vaqtinchalik fayllar
+*.log
+.DS_Store
+Thumbs.db
